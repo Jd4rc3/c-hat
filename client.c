@@ -5,38 +5,45 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
 #define MAX_LENGTH 1000
 
 static volatile int keepRunning = 1;
+
 void intHandler(int dummy) { keepRunning = 0; }
 
-int main() {
-  signal(SIGINT, intHandler);
-
-  int client_fd;
-  struct sockaddr_in server_address;
-  char buffer[MAX_LENGTH];
-  char recv_buffer[MAX_LENGTH];
-
-  client_fd = socket(AF_INET, SOCK_STREAM, 0);
+int create_client_socket() {
+  int client_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (client_fd == -1) {
     perror("Error al crear el socket del cliente");
-    return 1;
+    return -1;
   }
+  return client_fd;
+}
 
+struct sockaddr_in setup_server_address() {
+  struct sockaddr_in server_address;
   server_address.sin_family = AF_INET;
   server_address.sin_port = htons(8080);
   if (inet_pton(AF_INET, "127.0.0.1", &server_address.sin_addr) <= 0) {
     printf("\nDirección inválida / Dirección no soportada \n");
-    return -1;
+    return server_address;
   }
+  return server_address;
+}
 
+int connect_to_server(int client_fd, struct sockaddr_in server_address) {
   if (connect(client_fd, (struct sockaddr *)&server_address,
               sizeof(server_address)) < 0) {
     perror("Error al conectar con el servidor");
-    return 1;
+    return -1;
   }
+  return 0;
+}
 
+void echo_loop(int client_fd) {
+  char buffer[MAX_LENGTH];
+  char recv_buffer[MAX_LENGTH];
   while (keepRunning) {
     fgets(buffer, 100 + 1, stdin);
     buffer[strcspn(buffer, "\n")] = 0;
@@ -53,6 +60,21 @@ int main() {
       perror("Error al leer del socket");
     }
   }
+}
+
+int main() {
+  signal(SIGINT, intHandler);
+
+  int client_fd = create_client_socket();
+  if (client_fd == -1)
+    return 1;
+
+  struct sockaddr_in server_address = setup_server_address();
+
+  if (connect_to_server(client_fd, server_address) == -1)
+    return 1;
+
+  echo_loop(client_fd);
 
   close(client_fd);
 
