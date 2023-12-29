@@ -15,17 +15,12 @@ Node *new_node(client_t *client) {
 }
 
 void insert_node(Node **head, Node *new_node) {
-  if (*head == NULL) {
-    *head = new_node;
+  if (new_node == NULL) {
     return;
   }
 
-  Node *current = *head;
-  while (current->next != NULL) {
-    current = current->next;
-  }
-
-  current->next = new_node;
+  new_node->next = *head;
+  *head = new_node;
 }
 
 void delete_node(Node **head, Node *node) {
