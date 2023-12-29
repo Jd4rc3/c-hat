@@ -64,6 +64,11 @@ void echo_loop(int new_socket) {
   }
 }
 
+typedef struct {
+  int server_fd;
+  struct sockaddr *address;
+  socklen_t *addr_size;
+} accept_new_connection_args_t;
 int main() {
   signal(SIGINT, intHandler);
 
