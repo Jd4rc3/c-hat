@@ -45,3 +45,16 @@ void delete_node(Node **head, Node *node) {
     current = current->next;
   }
 }
+
+Node *search_node(Node **head, client_t *client) {
+  Node *current = *head;
+  while (current != NULL) {
+    if (current->client == client) {
+      return current;
+    }
+
+    current = current->next;
+  }
+
+  return NULL;
+}
