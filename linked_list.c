@@ -4,6 +4,11 @@
 
 Node *new_node(client_t *client) {
   Node *new_node = (Node *)malloc(sizeof(Node));
+  if (new_node == NULL) {
+    fprintf(stderr, "Error al asignar memoria para el nuevo nodo.\n");
+    return NULL;
+  }
+
   new_node->client = client;
   new_node->next = NULL;
   return new_node;
