@@ -69,6 +69,31 @@ typedef struct {
   struct sockaddr *address;
   socklen_t *addr_size;
 } accept_new_connection_args_t;
+
+void *accept_new_connection(void *arg) {
+  accept_new_connection_args_t *args = (accept_new_connection_args_t *)arg;
+
+  while (keepRunning) {
+    int new_socket = accept(args->server_fd, args->address, args->addr_size);
+
+    if (new_socket == -1) {
+      perror("Error en accept");
+      exit(EXIT_FAILURE);
+    }
+
+    client_t *client = malloc(sizeof(client_t));
+    client->sockfd = new_socket;
+    client->name = "Mario";
+
+    Node *newNode = new_node(client);
+    insert_node(&head, newNode);
+
+    printf("Nueva conexión\n");
+  }
+
+  return NULL;
+}
+
 int main() {
   signal(SIGINT, intHandler);
 
