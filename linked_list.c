@@ -24,7 +24,7 @@ void insert_node(Node **head, Node *new_node) {
 }
 
 void delete_node(Node **head, Node *node) {
-  if (*head == NULL) {
+  if (*head == NULL || node == NULL) {
     return;
   }
 
@@ -37,8 +37,9 @@ void delete_node(Node **head, Node *node) {
 
   while (current->next != NULL) {
     if (current->next == node) {
+      Node *temp = current->next;
       current->next = current->next->next;
-      free(node);
+      free(temp);
       return;
     }
     current = current->next;
