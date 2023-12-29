@@ -1,12 +1,16 @@
+#include "linked_list.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #define MAX_LENGTH 1000
 
 static volatile int keepRunning = 1;
+static struct Node *head = NULL;
 void intHandler(int dummy) { keepRunning = 0; }
 
 int create_server_socket() {
@@ -96,26 +100,36 @@ void *accept_new_connection(void *arg) {
 
 int main() {
   signal(SIGINT, intHandler);
+  struct sockaddr_in sockaddr = setup_address();
+  socklen_t addr_size = sizeof(sockaddr);
+  pthread_t new_connection_handler;
 
   int server_fd = create_server_socket();
-  if (server_fd == -1)
+  if (server_fd == -1) {
+    perror("Error al crear el socket del servidor");
     return 1;
+  }
+
+  accept_new_connection_args_t args = {.server_fd = server_fd,
+                                       .address = (struct sockaddr *)&sockaddr,
+                                       .addr_size = &addr_size};
 
   struct sockaddr_in address = setup_address();
 
   if (bind_and_listen(server_fd, address) == -1)
     return 1;
 
-  socklen_t addr_size = sizeof(address);
-  int new_socket = accept(server_fd, (struct sockaddr *)&address, &addr_size);
-  if (new_socket < 0) {
-    perror("Error al aceptar la conexion");
+  if (pthread_create(&new_connection_handler, NULL, accept_new_connection,
+                     &args)) {
+    fprintf(stderr, "Error al crear el hilo\n");
     return 1;
   }
 
-  echo_loop(new_socket);
+  if (pthread_join(new_connection_handler, NULL)) {
+    fprintf(stderr, "Error al unir el hilo\n");
+    return 2;
+  };
 
-  close(new_socket);
   close(server_fd);
 
   return 0;
