@@ -1,12 +1,19 @@
 #include <arpa/inet.h>
+#include <bits/pthreadtypes.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #define MAX_LENGTH 1000
+
+typedef struct {
+  int client_fd;
+} thread_args;
 
 static volatile int keepRunning = 1;
 
@@ -41,17 +48,32 @@ int connect_to_server(int client_fd, struct sockaddr_in server_address) {
   return 0;
 }
 
-void echo_loop(int client_fd) {
+void *write_loop(void *arg) {
   char buffer[MAX_LENGTH];
   char recv_buffer[MAX_LENGTH];
+  thread_args *args = (thread_args *)arg;
+
+  printf("Client write file descriptor %d\n", args->client_fd);
+
   while (keepRunning) {
     fgets(buffer, 100 + 1, stdin);
     buffer[strcspn(buffer, "\n")] = 0;
     printf("Texto leido: %s\n", buffer);
 
-    send(client_fd, buffer, strlen(buffer), 0);
+    send(args->client_fd, buffer, strlen(buffer), 0);
+  }
 
-    int bytesRead = read(client_fd, recv_buffer, MAX_LENGTH);
+  return NULL;
+}
+
+void *read_loop(void *arg) {
+  thread_args *args = (thread_args *)arg;
+  printf("Client read file descriptor %d\n", args->client_fd);
+
+  while (keepRunning) {
+    char recv_buffer[MAX_LENGTH];
+    int bytesRead = read(args->client_fd, recv_buffer, MAX_LENGTH);
+
     if (bytesRead > 0) {
       printf("Respuesta del servidor: %s\n", recv_buffer);
     } else if (bytesRead == 0) {
@@ -60,10 +82,14 @@ void echo_loop(int client_fd) {
       perror("Error al leer del socket");
     }
   }
+  return NULL;
 }
 
 int main() {
   signal(SIGINT, intHandler);
+  pthread_t emitter_thread;
+  pthread_t receiver_thread;
+  thread_args *args = malloc(sizeof(thread_args));
 
   int client_fd = create_client_socket();
   if (client_fd == -1)
@@ -74,7 +100,22 @@ int main() {
   if (connect_to_server(client_fd, server_address) == -1)
     return 1;
 
-  echo_loop(client_fd);
+  args->client_fd = client_fd;
+
+  if (pthread_create(&emitter_thread, NULL, write_loop, args)) {
+    fprintf(stderr, "Error al crear el hilo\n");
+    return 1;
+  }
+
+  if (pthread_create(&receiver_thread, NULL, read_loop, args)) {
+    fprintf(stderr, "Error al crear el hilo\n");
+    return 1;
+  }
+
+  if (pthread_join(receiver_thread, NULL)) {
+    fprintf(stderr, "Error al unir el hilo\n");
+    return 2;
+  };
 
   close(client_fd);
 

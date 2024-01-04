@@ -53,23 +53,6 @@ int bind_and_listen(int server_fd, struct sockaddr_in address) {
   return 0;
 }
 
-void echo_loop(int new_socket) {
-  char bufferRead[MAX_LENGTH];
-  while (1) {
-    int bytesRead = read(new_socket, bufferRead, MAX_LENGTH);
-    if (bytesRead > 0) {
-      write(new_socket, bufferRead, MAX_LENGTH);
-    } else if (bytesRead == 0) {
-      printf("La conexión se ha cerrado\n");
-      intHandler(1);
-      break;
-    } else {
-      perror("Error al leer del socket");
-      break;
-    }
-  }
-}
-
 typedef struct {
   int server_fd;
   struct sockaddr *address;
@@ -169,7 +152,6 @@ int main() {
   struct sockaddr_in sockaddr = setup_address();
   socklen_t addr_size = sizeof(sockaddr);
   pthread_t new_connection_handler;
-  pthread_t echo_handler;
 
   int server_fd = create_server_socket();
   if (server_fd == -1) {
