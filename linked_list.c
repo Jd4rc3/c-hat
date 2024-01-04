@@ -58,3 +58,11 @@ Node *search_node(Node **head, client_t *client) {
 
   return NULL;
 }
+
+void print_list(Node **head) {
+  Node *current = *head;
+  while (current != NULL) {
+    printf("Client: %d\n", current->client->sockfd);
+    current = current->next;
+  }
+}

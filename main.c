@@ -55,15 +55,17 @@ int bind_and_listen(int server_fd, struct sockaddr_in address) {
 
 void echo_loop(int new_socket) {
   char bufferRead[MAX_LENGTH];
-  while (keepRunning) {
+  while (1) {
     int bytesRead = read(new_socket, bufferRead, MAX_LENGTH);
     if (bytesRead > 0) {
       write(new_socket, bufferRead, MAX_LENGTH);
     } else if (bytesRead == 0) {
       printf("La conexión se ha cerrado\n");
       intHandler(1);
+      break;
     } else {
       perror("Error al leer del socket");
+      break;
     }
   }
 }
@@ -73,6 +75,59 @@ typedef struct {
   struct sockaddr *address;
   socklen_t *addr_size;
 } accept_new_connection_args_t;
+
+typedef struct {
+  int sockfd;
+  unsigned long max_length;
+  Node *node;
+} client_args;
+
+void *handle_incoming_messages(void *args) {
+  // TODO funcion para manejar los mensajes entrantes (la funcion que se encarga
+  // de enviar los mensajes a todos los clientes excepto al emisor)
+  client_args *clint_args = (client_args *)args;
+
+  while (1) {
+    char bufferRead[MAX_LENGTH];
+    int bytesRead = read(clint_args->sockfd, bufferRead, MAX_LENGTH);
+    printf("Waiting for message in socket %d\n", clint_args->sockfd);
+
+    if (bytesRead > 0) {
+
+      Node *current = head;
+      while (current != NULL) {
+        if (current->client->sockfd == clint_args->sockfd) {
+          current = current->next;
+          continue;
+        }
+
+        write(current->client->sockfd, bufferRead, MAX_LENGTH);
+        printf("writing message in socket %d\n", current->client->sockfd);
+        current = current->next;
+      }
+
+    } else if (bytesRead == 0) {
+      printf("La conexión se ha cerrado\n");
+      close(clint_args->sockfd);
+      delete_node(&head, clint_args->node);
+      break;
+    } else {
+      perror("Error al leer del socket");
+      break;
+    }
+  }
+
+  // echo_loop(clint_args->sockfd);
+  return NULL;
+}
+
+void send_messages(char *message) {
+  Node *next = head->next;
+
+  while (next->next == NULL) {
+    write(next->client->sockfd, message, MAX_LENGTH);
+  }
+}
 
 void *accept_new_connection(void *arg) {
   accept_new_connection_args_t *args = (accept_new_connection_args_t *)arg;
@@ -89,8 +144,19 @@ void *accept_new_connection(void *arg) {
     client->sockfd = new_socket;
     client->name = "Mario";
 
-    Node *newNode = new_node(client);
-    insert_node(&head, newNode);
+    Node *node = new_node(client);
+    client_args clint_args = {
+        .sockfd = new_socket, .max_length = MAX_LENGTH, .node = node};
+
+    printf("Spawning thread for socket %d\n", new_socket);
+    if (pthread_create(&node->thread, NULL, handle_incoming_messages,
+                       &clint_args)) {
+      fprintf(stderr, "Error al crear el hilo\n");
+    }
+
+    insert_node(&head, node);
+
+    print_list(&head);
 
     printf("Nueva conexión\n");
   }
@@ -103,6 +169,7 @@ int main() {
   struct sockaddr_in sockaddr = setup_address();
   socklen_t addr_size = sizeof(sockaddr);
   pthread_t new_connection_handler;
+  pthread_t echo_handler;
 
   int server_fd = create_server_socket();
   if (server_fd == -1) {

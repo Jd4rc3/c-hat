@@ -1,6 +1,8 @@
 #ifndef LINKED_LIST_H
 #define LINKED_LIST_H
 
+#include <pthread.h>
+
 typedef struct {
   int sockfd;
   char *name;
@@ -9,6 +11,7 @@ typedef struct {
 typedef struct Node {
   client_t *client;
   struct Node *next;
+  pthread_t thread;
 } Node;
 
 Node *new_node(client_t *client);
@@ -18,6 +21,8 @@ void insert_node(Node **head, Node *new_node);
 void delete_node(Node **head, Node *node);
 
 Node *search_node(Node **head, client_t *client);
+
+void print_list(Node **head);
 
 #endif
 
