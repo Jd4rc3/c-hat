@@ -49,13 +49,12 @@ int connect_to_server(int client_fd, struct sockaddr_in server_address) {
 }
 
 void *write_loop(void *arg) {
-  char buffer[MAX_LENGTH];
-  char recv_buffer[MAX_LENGTH];
   thread_args *args = (thread_args *)arg;
-
   printf("Client write file descriptor %d\n", args->client_fd);
 
   while (keepRunning) {
+    char buffer[MAX_LENGTH];
+    char recv_buffer[MAX_LENGTH];
     fgets(buffer, 100 + 1, stdin);
     buffer[strcspn(buffer, "\n")] = 0;
     printf("Texto leido: %s\n", buffer);

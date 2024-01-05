@@ -70,13 +70,12 @@ void *handle_incoming_messages(void *args) {
   // de enviar los mensajes a todos los clientes excepto al emisor)
   client_args *clint_args = (client_args *)args;
 
-  while (1) {
+  while (keepRunning) {
     char bufferRead[MAX_LENGTH];
     int bytesRead = read(clint_args->sockfd, bufferRead, MAX_LENGTH);
     printf("Waiting for message in socket %d\n", clint_args->sockfd);
 
     if (bytesRead > 0) {
-
       Node *current = head;
       while (current != NULL) {
         if (current->client->sockfd == clint_args->sockfd) {
@@ -84,15 +83,13 @@ void *handle_incoming_messages(void *args) {
           continue;
         }
 
-        write(current->client->sockfd, bufferRead, MAX_LENGTH);
         printf("writing message in socket %d\n", current->client->sockfd);
+        write(current->client->sockfd, bufferRead, MAX_LENGTH);
         current = current->next;
       }
 
     } else if (bytesRead == 0) {
       printf("La conexión se ha cerrado\n");
-      close(clint_args->sockfd);
-      delete_node(&head, clint_args->node);
       break;
     } else {
       perror("Error al leer del socket");
@@ -100,7 +97,10 @@ void *handle_incoming_messages(void *args) {
     }
   }
 
-  // echo_loop(clint_args->sockfd);
+  close(clint_args->sockfd);
+  delete_node(&head, clint_args->node);
+  free(clint_args);
+
   return NULL;
 }
 
@@ -128,12 +128,15 @@ void *accept_new_connection(void *arg) {
     client->name = "Mario";
 
     Node *node = new_node(client);
-    client_args clint_args = {
-        .sockfd = new_socket, .max_length = MAX_LENGTH, .node = node};
+
+    client_args *clint_args = malloc(sizeof(client_args));
+    clint_args->sockfd = new_socket;
+    clint_args->max_length = MAX_LENGTH;
+    clint_args->node = node;
 
     printf("Spawning thread for socket %d\n", new_socket);
     if (pthread_create(&node->thread, NULL, handle_incoming_messages,
-                       &clint_args)) {
+                       clint_args)) {
       fprintf(stderr, "Error al crear el hilo\n");
     }
 
