@@ -17,7 +17,7 @@ int create_server_socket() {
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
   if (server_fd == -1) {
-    perror("Error al crear el socket del servidor");
+    fprintf(stderr, "Error al crear el socket del servidor");
     return 1;
   }
 
@@ -36,19 +36,17 @@ struct sockaddr_in setup_address() {
 
 int bind_and_listen(int server_fd, struct sockaddr_in address) {
   socklen_t addr_size = sizeof(address);
-  // Bind server address to socket
   if (bind(server_fd, (struct sockaddr *)&address, addr_size) < 0) {
-    perror("Error al obtener la direccion y el puerto del socket");
+    fprintf(stderr, "Error getting socket");
     return 1;
   }
 
-  // Listen incoming connections
   if (listen(server_fd, 3) < 0) {
-    perror("Error al escuchar conexiones");
+    fprintf(stderr, "Erro setting socket as listener");
     return 1;
   }
 
-  printf("Escuchando en el puerto: %d\n", ntohs(address.sin_port));
+  printf("Listening at port: %d\n", ntohs(address.sin_port));
 
   return 0;
 }
@@ -73,7 +71,6 @@ void *handle_incoming_messages(void *args) {
   while (keepRunning) {
     char bufferRead[MAX_LENGTH];
     int bytesRead = read(clint_args->sockfd, bufferRead, MAX_LENGTH);
-    printf("Waiting for message in socket %d\n", clint_args->sockfd);
 
     if (bytesRead > 0) {
       Node *current = head;
@@ -83,16 +80,15 @@ void *handle_incoming_messages(void *args) {
           continue;
         }
 
-        printf("writing message in socket %d\n", current->client->sockfd);
         write(current->client->sockfd, bufferRead, MAX_LENGTH);
         current = current->next;
       }
 
     } else if (bytesRead == 0) {
-      printf("La conexión se ha cerrado\n");
+      printf("Client disconnected\n");
       break;
     } else {
-      perror("Error al leer del socket");
+      perror("Error reading from socket");
       break;
     }
   }
@@ -134,17 +130,16 @@ void *accept_new_connection(void *arg) {
     clint_args->max_length = MAX_LENGTH;
     clint_args->node = node;
 
-    printf("Spawning thread for socket %d\n", new_socket);
     if (pthread_create(&node->thread, NULL, handle_incoming_messages,
                        clint_args)) {
-      fprintf(stderr, "Error al crear el hilo\n");
+      perror("Error al crear el hilo\n");
     }
 
     insert_node(&head, node);
 
     print_list(&head);
 
-    printf("Nueva conexión\n");
+    printf("New connection\n");
   }
 
   return NULL;
@@ -158,7 +153,7 @@ int main() {
 
   int server_fd = create_server_socket();
   if (server_fd == -1) {
-    perror("Error al crear el socket del servidor");
+    fprintf(stderr, "Error creating server socket");
     return 1;
   }
 
@@ -173,12 +168,12 @@ int main() {
 
   if (pthread_create(&new_connection_handler, NULL, accept_new_connection,
                      &args)) {
-    fprintf(stderr, "Error al crear el hilo\n");
+    fprintf(stderr, "Error creating thread\n");
     return 1;
   }
 
   if (pthread_join(new_connection_handler, NULL)) {
-    fprintf(stderr, "Error al unir el hilo\n");
+    fprintf(stderr, "Error joining thread\n");
     return 2;
   };
 
